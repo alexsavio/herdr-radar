@@ -30,17 +30,22 @@ test('zero indent keeps headers, gaps, and worktree marks without corners', asyn
     indent: '',
   });
 
-  const worktree = sent.find(([pane]) => pane === 'worktree:p1')[1];
+  const tokensOf = (target) =>
+    Object.assign({}, ...sent.filter(([pane]) => pane === target).map(([, tokens]) => tokens));
+  const worktree = tokensOf('worktree:p1');
   assert.equal(worktree.group, '* worktree');
   assert.equal(worktree.gap, '\u200b');
-  assert.equal(sent.find(([pane]) => pane === 'checkout:p1')[1].group, 'checkout');
+  assert.equal(tokensOf('checkout:p1').group, 'checkout');
 });
 
 test('zero indent still writes grouped furniture', async (t) => {
   const previousIndent = state.INDENT;
+  const previousHeaders = config.groupHeaders;
   state.INDENT = '';
+  config.groupHeaders = true;
   t.after(() => {
     state.INDENT = previousIndent;
+    config.groupHeaders = previousHeaders;
   });
   const calls = [];
   t.mock.method(state, 'writeGroups', async () => {
@@ -65,6 +70,7 @@ test('zero indent still writes grouped furniture', async (t) => {
     {
       parentOf: new Map(),
       orphanRepo: new Map(),
+      colorOf: new Map(),
     },
     0,
     [],

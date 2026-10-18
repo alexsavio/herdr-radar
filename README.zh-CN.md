@@ -197,25 +197,53 @@ exec claude "$@"
 
 ## 设置
 
-`prefix+,` 打开设置弹窗：`↑↓` 选，`←→` 改，`↵` 编辑文本，`r` 恢复默认，`s` 保存并应用，
-`q` 关闭。保存只改写配置文件里变动的那几行，然后重启守护进程。
+`prefix+,` 打开设置弹窗：`↑↓` 选择，`←→` 或 `h`/`l` 切换标签，`↵` 改 bool/enum（文本则开始编辑），
+`Space`/`+` 和 `-` 前进/后退数值，`r` 恢复默认，`s` 保存并应用，`q` 关闭。保存只改写配置文件里变动的那几行，
+然后重启守护进程。
+
+### 面板
 
 | 项 | 默认 | 作用 |
 | --- | --- | --- |
 | `agents_panel` | `plugin` | 用本插件的面板，或 `herdr` 原生面板 |
 | `order` | `active` | `active` 分组按活跃度 / `recent` 扁平 / `off` Herdr 的顺序 |
-| `variant` | `auto` | logo 来源：`font` 图标字体 / `text` 普通 Unicode / `none`。`auto` 认插件自己装的字体 |
+| `reorder_workspaces` | `false` | 让 Herdr 的工作区编号跟随 Radar 的活跃度顺序 |
+
+### Agent 状态
+
+| 项 | 默认 | 作用 |
+| --- | --- | --- |
 | `done_hold` | `until_seen` | 勾保持到聚焦面板，或改成秒数 |
 | `blocked_hold` | `true` | 问号保持到 agent 重新干活 |
 | `idle_grace_seconds` | `2.5` | idle 持续这么久才算一轮结束 |
 | `activity_fresh_minutes` | `15` | 最后一轮之后多久内算 fresh |
 | `activity_stale_minutes` | `120` | 多久没动算 stale，整行变暗 |
+
+### 分组
+
+| 项 | 默认 | 作用 |
+| --- | --- | --- |
 | `group_indent` | `2` | 树的每层缩进空格数；`0` 时表头和空行保留，但不画树线；平铺列表用 `prefix+a` |
+| `group_headers` | `true` | 每个工作区名显示一行表头 |
+| `group_colors` | `true` | 每组一色和左侧条纹；工作区的 `owner` token 选择所属组 |
+| `leader_role` | `architect` | `role` token 为此值的面板在组内排第一；留空关闭 |
+| `coordinator_role` | `coordinator` | `role` token 为此值的面板排在 leader 之上；留空关闭 |
 | `group_gap` | `true` | 组之间留空行 |
 | `split_corner` | `false` | 分屏的其余面板用 `├─` 角标挂在第一个下面 |
-| `row_label` | `title` | 行显示什么：`title` 会话标题、`tab` tab 名、`both` 两者都显示（原 `show_tab = true`） |
 | `trim_group_prefix` | `true` | 标题开头与分组表头同名时去掉那一截 |
 | `worktree_mark` | `U+F418` | worktree 表头的标记，需要 Nerd Font；置空不画 |
+
+### 行
+
+| 项 | 默认 | 作用 |
+| --- | --- | --- |
+| `row_label` | `title` | 行显示什么：`title` 会话标题、`tab` tab 名、`both` 两者都显示（原 `show_tab = true`） |
+| `variant` | `auto` | logo 来源：`font` 图标字体 / `text` 普通 Unicode / `none`。`auto` 认插件自己装的字体 |
+
+### 外观
+
+| 项 | 默认 | 作用 |
+| --- | --- | --- |
 | `follow_appearance` | `true` | 跟随桌面明暗切换 Herdr 主题 |
 | `colors.active_row_bg_light` | `#b9cdf2` | 浅色主题的选中行底色；置空用主题自己的 |
 | `colors.active_row_bg_dark` | `#414868` | 深色主题的选中行底色 |

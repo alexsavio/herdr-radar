@@ -147,6 +147,73 @@ const cases = [
     'return `space_${display}`;',
     'spaces: idle tier not collapsed, so the token clears every state mark',
   ],
+  // Leader emphasis reuses the existing title cells: an invisible value marker
+  // enables bold, and the stripe's slot marks colour either bar character.
+  [
+    'lib/state.js',
+    "${leader ? LEADER_MARK : ''}${line.titlePrefix}${title}",
+    '${line.titlePrefix}${title}',
+    'leader title: removing its invisible marker loses the bold signal',
+  ],
+  [
+    'lib/managed-config.js',
+    "leaderTitleCell('$title_done', state.done),",
+    "cell('$title_done', state.done),",
+    'leader title: a state cell without its bold-only rule',
+  ],
+  ['lib/palette.js', "leaderBar: '█'", "leaderBar: '▌'", 'leader band: full-block guard removed'],
+  ['lib/palette.js', "bar: '▎'", "bar: '▌'", 'worker band: thin-block guard removed'],
+  [
+    'lib/managed-config.js',
+    '.map((fg, index) => `{ contains = "${\'\\\\u2060\'.repeat(index + 1)}", fg = "${fg}" }`)',
+    '.map((fg, index) => `{ contains = "${palette.band.bar}${\'\\\\u2060\'.repeat(index + 1)}", fg = "${fg}" }`)',
+    'leader band: colour rule tied to the half-block character',
+  ],
+  // Coordinator is the highest role rank, configured and documented alongside
+  // leader. Its stripe differs, but it reuses the leader's bold title marker.
+  [
+    'lib/config.js',
+    "coordinatorRole: typeof raw.coordinator_role === 'string' ? raw.coordinator_role.trim() : 'coordinator',",
+    "coordinatorRole: typeof raw.coordinator_role === 'string' ? raw.coordinator_role.trim() : '',",
+    'coordinator role: default rank disabled',
+  ],
+  [
+    'bin/settings.js',
+    "key: 'coordinator_role'",
+    "key: 'coordinator_rank'",
+    'coordinator role: setting removed from the popup',
+  ],
+  [
+    'README.md',
+    '| `coordinator_role` | `coordinator` |',
+    '| `coordinator_rank` | `coordinator` |',
+    'coordinator role: setting removed from README',
+  ],
+  [
+    'README.md',
+    'Workers use `▎`; leaders and coordinators use `█`',
+    'Workers use `▌`; leaders and coordinators use `█`',
+    'role stripes: README names the worker and full-block glyphs',
+  ],
+  [
+    'lib/frame.js',
+    'const coordinators = config.coordinatorRole',
+    'const coordinators = false && config.coordinatorRole',
+    'coordinator role: rank ignored in group order',
+  ],
+  ['lib/palette.js', "coordinatorBar: '█'", "coordinatorBar: '▌'", 'coordinator role: full-block stripe guard removed'],
+  [
+    'bin/settings.js',
+    '  return w;\n}',
+    '  return w + 1;\n}',
+    'coordinator role: width helper no longer reports every rank as one column',
+  ],
+  [
+    'lib/state.js',
+    'const bar = coordinator ? palette.band.coordinatorBar : leader ? palette.band.leaderBar : palette.band.bar;',
+    'const bar = leader ? palette.band.leaderBar : palette.band.bar;',
+    'coordinator role: stripe rank guard removed',
+  ],
   // Adding rather than removing: a removed token trips the mapping check above
   // before this one, so the only way to reach it is a token nothing draws.
   [
@@ -499,6 +566,40 @@ const cases = [
     true,
     'test/scroll-window.test.js',
   ],
+  // lib/settings-sections.js — Shift+Tab wraps from the first tab to the last.
+  [
+    'lib/settings-sections.js',
+    'return (index + direction + count) % count;',
+    'return (index + direction) % count;',
+    'settings: Shift+Tab does not wrap to the final section',
+    true,
+    'test/settings-sections.test.js',
+  ],
+  [
+    'bin/settings.js',
+    'const TITLE_ROWS = 0;',
+    'const TITLE_ROWS = 1;',
+    'settings: duplicate popup title takes a row from the settings list',
+    true,
+    'test/settings-sections.test.js',
+  ],
+  // lib/settings-sections.js — Tab, arrows, and h/l all navigate sections.
+  [
+    'lib/settings-sections.js',
+    'if (FORWARD_SECTION_KEYS.has(key)) return 1;',
+    'if (FORWARD_SECTION_KEYS.has(key)) return 0;',
+    'settings: right arrow no longer advances to the next section',
+    true,
+    'test/settings-sections.test.js',
+  ],
+  [
+    'lib/settings-sections.js',
+    'return Math.max(...sections.map((section) => section.fields.length));',
+    'return Math.min(...sections.map((section) => section.fields.length));',
+    'settings: popup height follows the shortest tab instead of the largest',
+    true,
+    'test/settings-sections.test.js',
+  ],
 
   // lib/toml-blocks.js — a symlinked config stays linked through a save.
   [
@@ -524,7 +625,7 @@ const cases = [
   // Group indent — zero removes only tree drawing, not group furniture.
   [
     'lib/frame.js',
-    'if (grouped) {\n      wrote = await state.writeGroups',
+    'if (grouped && config.groupHeaders) {\n      wrote = await state.writeGroups',
     'if (false) {\n      wrote = await state.writeGroups',
     'groups: zero indent clears headers and gaps',
     true,

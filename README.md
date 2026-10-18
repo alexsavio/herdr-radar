@@ -226,29 +226,106 @@ The row then wears the GLM mark and name. `--clear-display-agent` takes it back.
 this plugin does not recognise is ignored rather than blanking the row, so a human label
 such as `Claude: auth` still leaves the Claude mark in place.
 
+## How rows are grouped
+
+A group is one top-level workspace and every workspace hanging under it. By
+default the hanging follows git: a linked worktree hangs under the workspace on
+its repository's main checkout, and a second workspace on that same checkout
+stays a peer beside it.
+
+That fits one person per project. Run a lead agent with helpers (an
+orchestrator and its workers, a reviewer beside an author, several projects in
+one repository) and the list should show who works for whom instead. Two
+tokens say so; whoever starts the helper sets them:
+
+```sh
+# Hang a workspace under another one, whatever it has checked out.
+herdr workspace report-metadata <helper-workspace-id> --source my-tool --token owner=<lead-workspace-id>
+
+# Put a pane first in its group, ahead of busier panes.
+herdr pane report-metadata <lead-pane-id> --source my-tool --token role=architect
+
+# Put a pane above the leader (and every worker) in its group.
+herdr pane report-metadata <coordinator-pane-id> --source my-tool --token role=coordinator
+```
+
+- `owner` names an open workspace id. A closed or unknown id is ignored and the
+  workspace falls back to git. The tree stays one level deep: a helper of a
+  helper hangs under the top of the chain, and a loop of owners is broken.
+- `role` is matched first against `coordinator_role` (`coordinator` unless you
+  change it), then `leader_role` (`architect` unless you change it). The
+  coordinator or leader's tab ranks first in its workspace and heads its
+  split, so the highest-ranked session sits at the top of its group while its
+  helpers work.
+
+With `group_colors` on, each group takes one of twelve colours and keeps it
+while it stays on the list. The header wears it, and a stripe (`█`) in that
+colour runs down the left edge of every row in the group, so a group reads as
+one block. Workers use `▎`; leaders and coordinators use `█`. Every stripe is
+one column wide. Past twelve groups the colours repeat.
+
+Headers, indent and gaps are separate switches. `group_headers` turns the
+header rows on and off, `group_indent` sets the indent (at `0` there is no tree
+to draw, so no corners either), and `group_gap` puts a blank row after each
+group — never between a lead and its helpers.
+
+`row_label` picks what names an agent row: the session's title, its tab's
+name, or both. Use `tab` when you name tabs after their sessions, so the name
+is not written twice.
+
+Herdr puts a ` · ` between any two differently coloured cells of a row and has
+no row backgrounds or sidebar clicks for a plugin to use, so the stripe is a
+cell of its own and a group cannot be folded from the sidebar.
+
 ## Settings
 
-`prefix+,` opens the settings popup: `↑↓` select, `←→` change, `↵` edit a text value, `r`
-reset to default, `s` save and apply, `q` close. Saving rewrites only the changed lines of
+`prefix+,` opens the settings popup: `↑↓` select, `←→` or `h`/`l` change tabs, `↵` changes a
+bool or enum (or edits text), `Space`/`+` and `-` step values, `r` resets to default, `s` saves
+and applies, `q` closes. Saving rewrites only the changed lines of
 the config file and restarts the daemon.
+
+### Panel
 
 | Option | Default | Does |
 | --- | --- | --- |
 | `agents_panel` | `plugin` | this plugin's panel, or `herdr` for Herdr's own |
 | `order` | `active` | `active` grouped by activity / `recent` flat / `off` Herdr's order |
-| `variant` | `auto` | logos from the icon font (`font`), plain Unicode (`text`), or `none`; `auto` recognises the font the plugin installed |
+| `reorder_workspaces` | `false` | make Herdr's workspace indices follow Radar's activity order |
+
+### Agent state
+
+| Option | Default | Does |
+| --- | --- | --- |
 | `done_hold` | `until_seen` | keep the tick until the pane is focused, or a number of seconds |
 | `blocked_hold` | `true` | keep the question mark until the agent works again |
 | `idle_grace_seconds` | `2.5` | idle must persist this long to count as a finished turn |
 | `activity_fresh_minutes` | `15` | how long after the last turn a pane still reads as fresh |
 | `activity_stale_minutes` | `120` | how long without a turn before the row dims |
+### Groups
+
+| Option | Default | Does |
+| --- | --- | --- |
 | `group_indent` | `2` | spaces per tree level; `0` keeps headers and gaps but draws no tree lines; use `prefix+a` for the flat list |
+| `group_headers` | `true` | a header row naming each workspace |
+| `group_colors` | `true` | a colour and a left stripe per group; an `owner` workspace token picks the group |
+| `leader_role` | `architect` | a pane whose `role` token has this value sorts first in its group; empty for none |
+| `coordinator_role` | `coordinator` | a pane whose `role` token has this value ranks above the leader; empty for none |
 | `group_gap` | `true` | a blank row between groups |
 | `split_corner` | `false` | hang the other panes of a split screen off the first with a `├─` corner |
-| `reorder_workspaces` | `false` | make Herdr's workspace indices follow Radar's activity order |
-| `row_label` | `title` | what names an agent row: `title`, `tab` (the tab's name) or `both`; replaces `show_tab` |
 | `trim_group_prefix` | `true` | drop the workspace name from a title when the header above already shows it |
 | `worktree_mark` | `U+F418` | the mark on a worktree header, needs a Nerd Font; empty for none |
+
+### Rows
+
+| Option | Default | Does |
+| --- | --- | --- |
+| `row_label` | `title` | what names an agent row: `title`, `tab` (the tab's name) or `both`; replaces `show_tab` |
+| `variant` | `auto` | logos from the icon font (`font`), plain Unicode (`text`), or `none`; `auto` recognises the font the plugin installed |
+
+### Appearance
+
+| Option | Default | Does |
+| --- | --- | --- |
 | `follow_appearance` | `true` | switch Herdr's theme with the desktop's light/dark |
 | `colors.active_row_bg_light` | `#b9cdf2` | selected-row fill for a light theme; empty keeps the theme's own |
 | `colors.active_row_bg_dark` | `#414868` | selected-row fill for a dark theme |

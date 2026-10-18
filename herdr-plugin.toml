@@ -112,7 +112,9 @@ title = "herdr-radar settings"
 placement = "popup"
 command = ["node", "bin/settings.js"]
 width = 84
-height = "90%"
+# Eleven chrome rows plus the largest (nine-setting) section.
+# Ten chrome rows plus the largest (nine-setting) section.
+height = 19
 
 [[actions]]
 id = "settings"

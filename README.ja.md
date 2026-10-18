@@ -218,25 +218,53 @@ exec claude "$@"
 
 ## 設定
 
-`prefix+,` で設定ポップアップを開きます。`↑↓` 選択、`←→` 変更、`↵` テキスト編集、`r` 既定値、
-`s` 保存して適用、`q` 閉じる。保存は設定ファイルの変更行だけを書き換え、デーモンを再起動します。
+`prefix+,` で設定ポップアップを開きます。`↑↓` で選択、`←→` または `h`/`l` でタブ切替、`↵` で
+bool/enum を変更（テキストは編集開始）、`Space`/`+` と `-` で値を進め/戻し、`r` は既定値、`s` は保存して適用、
+`q` は閉じる。保存は設定ファイルの変更行だけを書き換え、デーモンを再起動します。
+
+### パネル
 
 | 項目 | 既定値 | 内容 |
 | --- | --- | --- |
 | `agents_panel` | `plugin` | このプラグインのパネル、または `herdr` で Herdr 本来のパネル |
 | `order` | `active` | `active` グループ化してアクティビティ順 / `recent` フラット / `off` Herdr の順序 |
-| `variant` | `auto` | ロゴをアイコンフォント（`font`）、通常の Unicode（`text`）、なし（`none`）。`auto` はプラグインが入れたフォントを認識 |
+| `reorder_workspaces` | `false` | Herdr のワークスペース番号を Radar のアクティビティ順に合わせる |
+
+### エージェントの状態
+
+| 項目 | 既定値 | 内容 |
+| --- | --- | --- |
 | `done_hold` | `until_seen` | チェックをフォーカスまで保持、または秒数 |
 | `blocked_hold` | `true` | エージェントが再び動くまでクエスチョンマークを保持 |
 | `idle_grace_seconds` | `2.5` | ターン終了とみなすまで idle が続く必要のある時間 |
 | `activity_fresh_minutes` | `15` | 最後のターンからこの時間は fresh |
 | `activity_stale_minutes` | `120` | この時間ターンがなければ行が薄くなる |
+
+### グループ
+
+| 項目 | 既定値 | 内容 |
+| --- | --- | --- |
 | `group_indent` | `2` | ツリーの階層ごとの空白数。`0` でも見出しと空行は残り、ツリー線は描かない。フラット表示は `prefix+a` |
+| `group_headers` | `true` | 各ワークスペース名の見出し行を表示 |
+| `group_colors` | `true` | グループごとの色と左ストライプ。ワークスペースの `owner` トークンでグループを選ぶ |
+| `leader_role` | `architect` | `role` トークンがこの値のペインをグループ内の先頭に置く。空で無効 |
+| `coordinator_role` | `coordinator` | `role` トークンがこの値のペインをリーダーより上に置く。空で無効 |
 | `group_gap` | `true` | グループ間の空行 |
 | `split_corner` | `false` | 分割画面の残りのペインを `├─` で最初のペインの下にぶら下げる |
-| `row_label` | `title` | 行の名前：`title` セッションのタイトル、`tab` タブ名、`both` 両方（旧 `show_tab = true`） |
 | `trim_group_prefix` | `true` | 見出しと同じ名前でタイトルが始まるとき、その部分を落とす |
 | `worktree_mark` | `U+F418` | worktree 見出しのマーク（Nerd Font が必要）。空で非表示 |
+
+### 行
+
+| 項目 | 既定値 | 内容 |
+| --- | --- | --- |
+| `row_label` | `title` | 行の名前：`title` セッションのタイトル、`tab` タブ名、`both` 両方（旧 `show_tab = true`） |
+| `variant` | `auto` | ロゴをアイコンフォント（`font`）、通常の Unicode（`text`）、なし（`none`）。`auto` はプラグインが入れたフォントを認識 |
+
+### 外観
+
+| 項目 | 既定値 | 内容 |
+| --- | --- | --- |
 | `follow_appearance` | `true` | デスクトップのライト／ダークに合わせて Herdr のテーマを切り替え |
 | `colors.active_row_bg_light` | `#b9cdf2` | ライトテーマの選択行の背景。空ならテーマ自身の値 |
 | `colors.active_row_bg_dark` | `#414868` | ダークテーマの選択行の背景 |

@@ -328,6 +328,127 @@ for (const variant of ['light', 'dark']) {
   }
 }
 
+// A leader uses the same title token as its peers, marked invisibly in the
+// value. That costs no row slot; each state-coloured title cell adds only a
+// bold rule, so its own foreground colour still wins.
+{
+  const title = 'Keep this title readable';
+  const line = { band: null, mark: '·', split: '', logo: '', titlePrefix: '' };
+  for (const display of state.STATES) {
+    const leader = state.stateTokens(display, line, title, true)[`title_${display}`];
+    const member = state.stateTokens(display, line, title, false)[`title_${display}`];
+    if (leader !== `${state.LEADER_MARK}${title}`) {
+      problems.push(`leader title (${display}): missing the invisible bold marker`);
+    }
+    if (member !== title) {
+      problems.push(`member title (${display}): unexpectedly carries the leader bold marker`);
+    }
+  }
+  for (const variant of ['light', 'dark']) {
+    const block = managed.sidebarBlock(variant);
+    for (let slot = 0; slot < palette.groupColors.length; slot += 1) {
+      const mark = '\\u2060'.repeat(slot + 1);
+      if (!block.includes(`contains = "${mark}"`)) {
+        problems.push(`sidebar block (${variant}): band slot ${slot + 1} is not coloured by its mark`);
+      }
+    }
+    if (block.includes(`contains = "${palette.band.bar}`)) {
+      problems.push(`sidebar block (${variant}): band colour depends on the half-block character`);
+    }
+    for (const display of state.STATES) {
+      const titleCell = new RegExp(
+        `token = "\\$title_${display}", fg = "([^"]+)", bold = (true|false), dim = (true|false), ` +
+          'rules = \\[{ contains = "\\\\u2063", bold = true }\\]',
+      );
+      if (!titleCell.test(block)) {
+        problems.push(`sidebar block (${variant}): $title_${display} has no bold-only leader rule`);
+      }
+    }
+  }
+}
+
+// Herdr's sidebar limits apply to generated text, not our intentions. Count
+// both kinds directly from the generated block: nested rules stay inside their
+// cell, while rows are counted at their outer bracket depth.
+function generatedRows(block) {
+  const start = block.indexOf('rows = [');
+  if (start < 0) return [];
+  const bodyStart = block.indexOf('[', start);
+  let depth = 0;
+  for (let index = bodyStart; index < block.length; index += 1) {
+    if (block[index] === '[') depth += 1;
+    if (block[index] === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        const body = block.slice(bodyStart, index + 1);
+        const rows = [];
+        let rowDepth = 0;
+        let rowStart = 0;
+        for (let offset = 0; offset < body.length; offset += 1) {
+          if (body[offset] === '[') {
+            if (rowDepth === 1) rowStart = offset;
+            rowDepth += 1;
+          } else if (body[offset] === ']') {
+            rowDepth -= 1;
+            if (rowDepth === 1) rows.push(body.slice(rowStart, offset + 1));
+          }
+        }
+        return rows;
+      }
+    }
+  }
+  return [];
+}
+for (const variant of ['light', 'dark']) {
+  const block = managed.sidebarBlock(variant);
+  for (const row of generatedRows(block)) {
+    const tokens = (row.match(/token = "/g) ?? []).length + (row.match(/(?<![:=] )"\$\w+"/g) ?? []).length;
+    if (tokens > 16) problems.push(`sidebar block (${variant}): row has ${tokens} tokens, over Herdr's 16-token limit`);
+    for (const rules of row.matchAll(/rules = \[([^\]]*)\]/g)) {
+      const count = (rules[1].match(/\{ contains = /g) ?? []).length;
+      if (count > 16) problems.push(`sidebar block (${variant}): cell has ${count} rules, over Herdr's 16-rule limit`);
+    }
+  }
+}
+
+// The highest role is a setting, not a magic token: the default gives it a
+// distinct rank and an empty value turns only that rank off. It must also be
+// reachable from the settings popup and described beside leader_role.
+{
+  const os = require('node:os');
+  const { spawnSync } = require('node:child_process');
+  const readRoles = (toml) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radar-config-'));
+    fs.writeFileSync(path.join(dir, 'config.toml'), toml);
+    const out = spawnSync(
+      process.execPath,
+      ['-e', "process.stdout.write(JSON.stringify(require('./lib/config').coordinatorRole))"],
+      { cwd: root, env: { ...process.env, HERDR_PLUGIN_CONFIG_DIR: dir }, encoding: 'utf8' },
+    );
+    fs.rmSync(dir, { recursive: true, force: true });
+    return out.stdout;
+  };
+  for (const [toml, expected] of [
+    ['', '"coordinator"'],
+    ['coordinator_role = "director"\n', '"director"'],
+    ['coordinator_role = ""\n', '""'],
+  ]) {
+    const got = readRoles(toml);
+    if (got !== expected)
+      problems.push(`config: ${JSON.stringify(toml)} reads coordinator_role as ${got}, expected ${expected}`);
+  }
+  const settings = fs.readFileSync(path.join(root, 'bin', 'settings.js'), 'utf8');
+  if (!settings.includes("key: 'coordinator_role'"))
+    problems.push('settings: coordinator_role is not editable in the popup');
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  if (!readme.includes('| `coordinator_role` | `coordinator` |')) {
+    problems.push('README: coordinator_role is missing beside leader_role');
+  }
+  if (!readme.includes('Workers use `▎`; leaders and coordinators use `█`')) {
+    problems.push('README: coordinator stripe glyph is missing or incorrectly named');
+  }
+}
+
 // A vendor this plugin can name never goes nameless.
 //
 // The row is `logo · title`. When the title says nothing the vendor's name
@@ -481,6 +602,217 @@ if (unstable) {
   }
 }
 
+// The tree the Agents panel draws. An `owner` token outranks the repo, two
+// workspaces on the same main checkout stay side by side, the tree stays one
+// level deep, and a loop of owners never leaves a cycle for the sort to chase.
+{
+  const { worktreeParents } = require('../lib/state');
+  const repo = (linked) => ({ repo_key: '/r/.git', repo_name: 'r', is_linked_worktree: linked });
+  const list = [
+    { workspace_id: 'arch1', worktree: repo(false), tokens: {} },
+    { workspace_id: 'arch2', worktree: repo(false), tokens: {} },
+    { workspace_id: 'worker', worktree: repo(true), tokens: { owner: 'arch2' } },
+    { workspace_id: 'plain', worktree: repo(true), tokens: {} },
+    { workspace_id: 'sub', tokens: { owner: 'worker' } },
+    { workspace_id: 'ghost', worktree: repo(true), tokens: { owner: 'closed' } },
+    { workspace_id: 'loopA', tokens: { owner: 'loopB' } },
+    { workspace_id: 'loopB', tokens: { owner: 'loopA' } },
+  ];
+  const { parents, worktrees } = worktreeParents(list);
+  const expect = {
+    arch1: undefined,
+    arch2: undefined,
+    worker: 'arch2',
+    plain: 'arch1',
+    sub: 'arch2',
+    ghost: 'arch1',
+  };
+  for (const [child, parent] of Object.entries(expect)) {
+    if (parents.get(child) !== parent) {
+      problems.push(`worktreeParents: ${child} hangs under ${parents.get(child)}, expected ${parent}`);
+    }
+  }
+  if (parents.get('loopA') === 'loopB' && parents.get('loopB') === 'loopA') {
+    problems.push('worktreeParents: an owner loop survived as a cycle');
+  }
+  if (worktrees.has('worker')) {
+    problems.push('worktreeParents: an owned worktree is still listed as an orphan of its repo');
+  }
+}
+
+// Checks that write tokens record them here instead of reaching Herdr. One
+// stub for the whole script, so concurrent checks never restore the real
+// writer under one another; each check uses pane ids of its own.
+const herdrWrites = new Map();
+require('../lib/herdr').reportMetadataAsync = async (pane, _source, tokens) => {
+  if (!herdrWrites.has(pane)) herdrWrites.set(pane, []);
+  herdrWrites.get(pane).push(tokens);
+  return true;
+};
+const gapsUnder = (panes) => panes.filter((pane) => herdrWrites.get(pane)?.at(-1)?.gap);
+
+// The flat list's gaps close a whole group, not each workspace in it: none
+// between an architect and its workers, one after the group's last row, none
+// after the last row of the list.
+{
+  const { writeGaps } = require('../lib/state');
+  const rows = [
+    ['a', 'flat-a:p1'],
+    ['m', 'flat-m:p1'],
+    ['m', 'flat-m:p2'],
+    ['b', 'flat-b:p1'],
+  ].map(([workspace, pane]) => ({ workspace, pane }));
+  writeGaps('check', rows, new Map([['m', 'a']])).then(() => {
+    const gaps = gapsUnder(rows.map((row) => row.pane));
+    if (gaps.join() !== 'flat-m:p2') {
+      problems.push(`writeGaps: gaps under ${gaps.join(', ') || 'nothing'}, expected flat-m:p2`);
+    }
+  });
+}
+
+// With headers, the gap closes a family too: none between an architect and
+// its first worker, none between two workers, one after the last.
+{
+  const { writeGroups } = require('../lib/state');
+  const rows = ['a', 'm1', 'm2', 'b'].map((workspace) => ({ workspace, pane: `headed-${workspace}:p1` }));
+  const labels = new Map(rows.map((row) => [row.workspace, row.workspace]));
+  const parentOf = new Map([
+    ['m1', 'a'],
+    ['m2', 'a'],
+  ]);
+  writeGroups('check', rows, labels, new Set(), { parentOf }).then(() => {
+    const gaps = gapsUnder(rows.map((row) => row.pane));
+    if (gaps.join() !== 'headed-m2:p1,headed-b:p1') {
+      problems.push(`writeGroups: gaps under ${gaps.join(', ') || 'nothing'}, expected headed-m2:p1, headed-b:p1`);
+    }
+  });
+}
+
+// Role ranks put a coordinator above a leader, above workers, whatever the
+// panes' activity. Both ranks get the invisible bold-title marker, while only
+// their stripe shapes differ.
+{
+  const { Frame } = require('../lib/frame');
+  const frame = new Frame('check');
+  frame.lastWorkingAt = new Map([
+    ['ws:busy', 60000 * 5],
+    ['ws:arch', 60000],
+    ['ws:split', 60000 * 2],
+    ['ws:coord', 60000 * 0],
+  ]);
+  const rows = [
+    { workspace: 'ws', tab: 't1', pane: 'ws:busy', role: '' },
+    { workspace: 'ws', tab: 't2', pane: 'ws:split', role: '' },
+    { workspace: 'ws', tab: 't2', pane: 'ws:arch', role: 'architect' },
+    { workspace: 'ws', tab: 't3', pane: 'ws:coord', role: 'coordinator' },
+  ];
+  const keys = frame.sortKeys(rows, new Map(), new Map());
+  const order = frame.displayOrder(rows, 'grouped', keys).map((row) => row.pane);
+  if (order.slice(0, 2).join() !== 'ws:coord,ws:arch') {
+    problems.push(`role ranks: order is ${order.join(', ')}, expected ws:coord, ws:arch first`);
+  }
+  if (keys.splitChild(rows[2]) || !keys.splitChild(rows[1])) {
+    problems.push('architect role: the architect does not head its split');
+  }
+  if (!keys.coordinators.has(rows[3].pane) || keys.leaders.has(rows[3].pane)) {
+    problems.push('coordinator role: coordinator rank is not distinct from the leader rank');
+  }
+  const { width } = require('../bin/settings');
+  for (const [rank, stripe] of Object.entries({
+    worker: palette.band.bar,
+    leader: palette.band.leaderBar,
+    coordinator: palette.band.coordinatorBar,
+  })) {
+    if (width(stripe) !== 1) problems.push(`${rank} role: ${stripe} is ${width(stripe)} columns, not one`);
+  }
+  const coordinatorBand = state.bandValue(0, '', { coordinator: keys.coordinators.has(rows[3].pane) });
+  const leaderBand = state.bandValue(0, '', { leader: keys.leaders.has(rows[2].pane) });
+  const memberBand = state.bandValue(0, '', {});
+  if (!coordinatorBand.startsWith('█')) {
+    problems.push(`coordinator role: band is ${JSON.stringify(coordinatorBand)}, not a full block`);
+  }
+  if (!leaderBand.startsWith('█')) {
+    problems.push(`architect role: leader band is ${JSON.stringify(leaderBand)}, not a full block`);
+  }
+  if (!memberBand.startsWith('▎')) {
+    problems.push(`architect role: member band is ${JSON.stringify(memberBand)}, not a thin block`);
+  }
+  const line = { band: null, mark: '·', split: '', logo: '', titlePrefix: '' };
+  const title = 'Ranked title';
+  const coordinatorTitle = state.stateTokens('idle', line, title, keys.coordinators.has(rows[3].pane)).title_idle;
+  const leaderTitle = state.stateTokens('idle', line, title, keys.leaders.has(rows[2].pane)).title_idle;
+  const workerTitle = state.stateTokens('idle', line, title, keys.leaders.has(rows[0].pane)).title_idle;
+  if (coordinatorTitle !== `${state.LEADER_MARK}${title}` || leaderTitle !== `${state.LEADER_MARK}${title}`) {
+    problems.push('role ranks: coordinator or leader title is missing the bold marker');
+  }
+  if (workerTitle !== title) problems.push('role ranks: worker title unexpectedly carries the bold marker');
+}
+
+// Colour slots: every top-level group gets its own while there are slots
+// left, members wear their parent's, and a group keeps its slot when another
+// group leaves.
+{
+  const { Frame } = require('../lib/frame');
+  const frame = new Frame('check');
+  const entries = (...ids) => ids.map((ws) => ({ workspace: ws, pane: `${ws}:p1` }));
+  const parentOf = new Map([['m', 'b']]);
+  const first = frame.groupColorSlots(entries('a', 'b', 'm', 'c'), parentOf);
+  if (new Set([first.get('a'), first.get('b'), first.get('c')]).size !== 3) {
+    problems.push(`groupColorSlots: top-level groups share a slot — ${JSON.stringify([...first])}`);
+  }
+  if (first.get('m') !== first.get('b')) {
+    problems.push('groupColorSlots: a member does not wear its parent group colour');
+  }
+  const second = frame.groupColorSlots(entries('b', 'm', 'c'), parentOf);
+  if (second.get('b') !== first.get('b') || second.get('c') !== first.get('c')) {
+    problems.push('groupColorSlots: a group changed colour when another group left');
+  }
+}
+
+// The sort keys are republished when any of them moves, tab_key included: a
+// tab's key follows its busiest pane, so it can change while this pane's own
+// sort_key and ws_key stay put, and a stale tab_key makes Herdr's order
+// disagree with the one the group furniture was drawn for.
+{
+  const { Frame } = require('../lib/frame');
+  const frame = new Frame('check');
+  const entry = { pane: 'sortkeys:p1', workspace: 'w', tab: 't', name: 'claude', title: 'x' };
+  const keysWith = (tabKey) => ({
+    minuteKey: () => '000000000001',
+    wsKeys: new Map([['w', 'ws']]),
+    tabKeys: new Map([['sortkeys:p1', tabKey]]),
+  });
+  const run = async (tabKey) => {
+    const jobs = [];
+    frame.paneJobs(entry, 'idle', { tabs: new Map(), keys: keysWith(tabKey), indent: '', spinStep: 0 }, 0, [], jobs);
+    await Promise.all(jobs);
+  };
+  (async () => {
+    await run('0-000000000001-t');
+    await run('0-000000000002-t');
+    const sent = (herdrWrites.get('sortkeys:p1') ?? []).filter((t) => 'tab_key' in t).map((t) => t.tab_key);
+    if (sent.join() !== '0-000000000001-t,0-000000000002-t') {
+      problems.push(`paneJobs: tab_key writes were ${sent.join(', ') || 'none'}, expected both keys`);
+    }
+  })();
+}
+
+// writeAtomic keeps a symlinked config a symlink: it writes the link's
+// target, so a config kept in a dotfiles repo stays linked.
+{
+  const os = require('node:os');
+  const { writeAtomic } = require('../lib/toml-blocks');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'radar-check-'));
+  const real = path.join(dir, 'real.toml');
+  const link = path.join(dir, 'config.toml');
+  fs.writeFileSync(real, 'old');
+  fs.symlinkSync(real, link);
+  writeAtomic(link, 'new');
+  if (!fs.lstatSync(link).isSymbolicLink()) problems.push('writeAtomic: replaced a symlinked config with a plain file');
+  if (fs.readFileSync(real, 'utf8') !== 'new') problems.push('writeAtomic: the symlink target was not updated');
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 // row_label: each mode names the row as documented, and a tab-only row keeps
 // its title when the tab is unnamed or carries only Herdr's number.
 {
@@ -565,8 +897,11 @@ for (const dir of ['lib', 'bin']) {
   }
 }
 
-if (problems.length) {
-  console.error(problems.join('\n'));
-  process.exit(1);
-}
-console.log('ok');
+// After the pending promise checks above have settled.
+setImmediate(() => {
+  if (problems.length) {
+    console.error(problems.join('\n'));
+    process.exit(1);
+  }
+  console.log('ok');
+});
