@@ -170,7 +170,7 @@ const cases = [
     'leader band: colour rule tied to the half-block character',
   ],
   // Coordinator is the highest role rank, configured and documented alongside
-  // leader. Its stripe differs, but it reuses the leader's bold title marker.
+  // leader. It reuses the leader's bold title marker.
   [
     'lib/config.js',
     "coordinatorRole: typeof raw.coordinator_role === 'string' ? raw.coordinator_role.trim() : 'coordinator',",

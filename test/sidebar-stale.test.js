@@ -61,7 +61,6 @@ for (const variant of ['light', 'dark']) {
   test(`a block without the group colour cells is stale (${variant})`, (t) => {
     fs.writeFileSync(file, withoutGroupColours(installed(t, variant)));
     const { text } = managed.inspect();
-    // What the start check looked at before: all of it still passes.
     assert.equal(managed.blockVariant(text), logos.resolveVariant());
     assert.equal(managed.tabBarStale(text), false);
     assert.equal(managed.blockOverLimit(text), false);

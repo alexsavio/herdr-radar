@@ -692,8 +692,7 @@ const gapsUnder = (panes) => panes.filter((pane) => herdrWrites.get(pane)?.at(-1
 }
 
 // Role ranks put a coordinator above a leader, above workers, whatever the
-// panes' activity. Both ranks get the invisible bold-title marker, while only
-// their stripe shapes differ.
+// panes' activity. Both ranks get the invisible bold-title marker.
 {
   const { Frame } = require('../lib/frame');
   const frame = new Frame('check');
