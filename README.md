@@ -250,7 +250,8 @@ herdr pane report-metadata <coordinator-pane-id> --source my-tool --token role=c
 ```
 
 - `owner` names an open workspace id. A closed or unknown id is ignored and the
-  workspace falls back to git. The tree stays one level deep: a helper of a
+  workspace falls back to git, and so does an owner with no agents on the list,
+  which has no header to hang from. The tree stays one level deep: a helper of a
   helper hangs under the top of the chain, and a loop of owners is broken.
 - `role` is matched first against `coordinator_role` (`coordinator` unless you
   change it), then `leader_role` (`architect` unless you change it). The
