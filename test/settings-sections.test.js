@@ -17,8 +17,21 @@ const {
   MAX_SECTION_ROWS,
   POPUP_CONTENT_ROWS,
   keyHint,
+  buttons,
+  width,
   listWindow,
 } = require('../bin/settings');
+
+const plain = (text) => text.replace(/\u001b\[[0-9;]*m/g, '');
+
+test('the popup names the keys that save, reset and change a value', () => {
+  for (const hint of [plain(keyHint(80)), plain(keyHint(40))]) {
+    assert.match(hint, /\br reset\b/);
+    assert.match(hint, /↵ (change|edit)/);
+  }
+  assert.match(plain(buttons(80)), /\bs save\b/);
+  assert.doesNotMatch(plain(buttons(80)), /↵ apply/);
+});
 
 test('settings sections preserve the requested tab order and every field', () => {
   assert.deepEqual(
@@ -69,5 +82,13 @@ test('the popup list receives only the selected tab fields', () => {
 });
 
 test('the full section key hint fits an 84-column popup', () => {
-  assert.equal(keyHint(82), '↑↓ select   ←→ section   + / - step');
+  const hint = keyHint(82);
+  assert.match(hint, /^↑↓ select {3}←→ section {3}\+ \/ - step/);
+  assert.ok(width(hint) <= 82, `hint is ${width(hint)} columns`);
+});
+
+test('the short hint is shorter than the full hint', () => {
+  const hint = keyHint(40);
+  assert.match(hint, /^↑↓ select {2}←→ section {2}\+\/- step/);
+  assert.ok(width(hint) < width(keyHint(82)));
 });
