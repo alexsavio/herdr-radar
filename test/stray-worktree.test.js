@@ -147,4 +147,6 @@ test('in Herdr order a detached member keeps its group colour', async (t) => {
   assert.equal(slotOf('kid1'), slotOf('app'), 'a detached member wears its owner colour');
   assert.equal(slotOf('kid2'), slotOf('app'), 'and so does its sibling');
   assert.notEqual(slotOf('other'), slotOf('app'), 'the project between them keeps its own');
+  const header = sent.get('kid1:p1')[state.GROUP_COLOR_TOKENS[slotOf('kid1')]];
+  assert.ok(!header.includes(config.worktreeMark), 'an owner member is no worktree and has no mark');
 });

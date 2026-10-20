@@ -60,3 +60,37 @@ test('a worktree whose owner has no agents falls back to its repo', () => {
   const noMain = keysFor(['wt']);
   assert.equal(noMain.orphanRepo.get('wt'), 'r', 'with the repo not listed either, the repo row stands in');
 });
+
+// The worktree mark says "a branch cut from this repo". A member grouped by its
+// `owner` alone is no branch, so it hangs with a corner and no mark.
+test('only a linked worktree carries the worktree mark', async (t) => {
+  const config = require('../lib/config');
+  const mark = config.worktreeMark;
+  assert.ok(mark, 'the default config has a worktree mark');
+  const sent = record(t);
+  const names = ['lead', 'helper', 'wt', 'stray'];
+  const entries = names.map((ws) => ({ pane: `${ws}:p1`, workspace: ws }));
+  await state.writeGroups('test', entries, new Map(names.map((ws) => [ws, ws])), new Set(), {
+    parentOf: new Map([
+      ['helper', 'lead'],
+      ['wt', 'lead'],
+    ]),
+    detached: new Set(['stray']),
+    linked: new Set(['wt']),
+  });
+  const header = (ws) => sent.get(`${ws}:p1`).group;
+  assert.ok(header('wt').includes(mark), 'a linked worktree keeps its mark');
+  assert.ok(!header('helper').includes(mark), 'an owner member has none');
+  assert.ok(!header('stray').includes(mark), 'nor has a detached one that is no worktree');
+});
+
+test('sortKeys lists the linked worktrees on the panel', () => {
+  const { Frame } = require('../lib/frame');
+  const pane = (ws) => ({ pane: `${ws}:p1`, workspace: ws, tab: `${ws}:t1` });
+  const worktrees = new Map([
+    ['wt', 'r'],
+    ['gone', 'r'],
+  ]);
+  const keys = new Frame('test').sortKeys(['main', 'wt', 'helper'].map(pane), new Map(), worktrees);
+  assert.deepEqual([...keys.linked], ['wt']);
+});
