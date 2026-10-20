@@ -93,3 +93,58 @@ test('a worktree whose parent is not listed still gets its repo row', async (t) 
   const sent = await groupsFor(t, list, tree);
   assert.equal(sent.get('hotfix:p1').group_parent, 'app', 'the repo name stands in for the absent parent');
 });
+
+// A detached row is drawn apart from its family, but it still belongs to it:
+// the colour says which group, so it follows the owner even where the tree
+// cannot. `owner` children are hung the same way as worktrees.
+test('in Herdr order a detached member keeps its group colour', async (t) => {
+  const config = require('../lib/config');
+  const activity = require('../lib/activity');
+  const view = require('../lib/view');
+  const previous = { groupColors: config.groupColors, groupHeaders: config.groupHeaders };
+  config.groupColors = true;
+  config.groupHeaders = true;
+  t.after(() => Object.assign(config, previous));
+
+  const order = ['app', 'other', 'kid1', 'kid2'];
+  const list = order.map((ws, index) => ({
+    pane: `${ws}:p1`,
+    terminal: `t${index}`,
+    workspace: ws,
+    tab: `${ws}:t1`,
+    name: 'claude',
+    title: 'x',
+    status: 'idle',
+  }));
+  const owners = new Map([
+    ['kid1', 'app'],
+    ['kid2', 'app'],
+  ]);
+  t.mock.method(state, 'snapshot', async () => list);
+  t.mock.method(state, 'labels', async () => ({
+    tabs: new Map(),
+    workspaces: new Map(order.map((ws) => [ws, ws])),
+    parents: owners,
+    worktrees: new Map(),
+  }));
+  t.mock.method(view, 'mode', () => null);
+  t.mock.method(herdr, 'panelGrouped', () => true);
+  t.mock.method(herdr, 'panesAsync', async () => []);
+  t.mock.method(herdr, 'workspacesAsync', async () => []);
+  t.mock.method(activity, 'load', () => new Map());
+  t.mock.method(activity, 'save', () => {});
+  t.mock.method(activity, 'recover', () => null);
+  const sent = new Map();
+  t.mock.method(herdr, 'reportMetadataAsync', async (pane, _source, tokens) => {
+    sent.set(pane, { ...sent.get(pane), ...tokens });
+    return true;
+  });
+
+  const frame = new Frame('test');
+  await frame.render(10_000_000);
+  const slotOf = (ws) => state.GROUP_COLOR_TOKENS.findIndex((token) => sent.get(`${ws}:p1`)?.[token]);
+  assert.notEqual(slotOf('app'), -1, 'the owner header is coloured');
+  assert.equal(slotOf('kid1'), slotOf('app'), 'a detached member wears its owner colour');
+  assert.equal(slotOf('kid2'), slotOf('app'), 'and so does its sibling');
+  assert.notEqual(slotOf('other'), slotOf('app'), 'the project between them keeps its own');
+});
