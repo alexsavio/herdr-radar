@@ -618,7 +618,7 @@ if (unstable) {
     { workspace_id: 'loopA', tokens: { owner: 'loopB' } },
     { workspace_id: 'loopB', tokens: { owner: 'loopA' } },
   ];
-  const { parents, worktrees } = worktreeParents(list);
+  const { parents, repoParents } = worktreeParents(list);
   const expect = {
     arch1: undefined,
     arch2: undefined,
@@ -635,8 +635,11 @@ if (unstable) {
   if (parents.get('loopA') === 'loopB' && parents.get('loopB') === 'loopA') {
     problems.push('worktreeParents: an owner loop survived as a cycle');
   }
-  if (worktrees.has('worker')) {
-    problems.push('worktreeParents: an owned worktree is still listed as an orphan of its repo');
+  // The owner wins, but the checkout is kept for an owner with no agents.
+  if (repoParents.get('worker') !== 'arch1') {
+    problems.push(
+      `worktreeParents: an owned worktree lost its checkout (${repoParents.get('worker')}), expected arch1`,
+    );
   }
 }
 
@@ -689,8 +692,7 @@ const gapsUnder = (panes) => panes.filter((pane) => herdrWrites.get(pane)?.at(-1
 }
 
 // Role ranks put a coordinator above a leader, above workers, whatever the
-// panes' activity. Both ranks get the invisible bold-title marker, while only
-// their stripe shapes differ.
+// panes' activity. Both ranks get the invisible bold-title marker.
 {
   const { Frame } = require('../lib/frame');
   const frame = new Frame('check');
