@@ -96,6 +96,22 @@ herdr plugin action invoke hhdebb.herdr-radar.state-start
 `plugin link` runs no build step; the daemon does the same setup on its first start, which is
 what the third line is for.
 
+### Update
+
+On Herdr 0.9.4 and later:
+
+```sh
+herdr plugin update hhdebb.herdr-radar
+```
+
+The daemon that is already running keeps the version it started with until Herdr restarts.
+To switch to the new one now, restart just the daemon; your panes are not touched:
+
+```sh
+herdr plugin action invoke hhdebb.herdr-radar.state-stop
+herdr plugin action invoke hhdebb.herdr-radar.state-start
+```
+
 ### Or hand it to an agent
 
 Paste this at a coding agent and it will do the install:
