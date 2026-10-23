@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.9 — 2026-10-21
+
+- **An answered question stops showing red when a hook reports the
+  state.** Radar holds a pane's blocked mark through a brief idle, because
+  screen detection can misread a redraw as idle. When an agent's state
+  comes from a full-lifecycle hook instead, as with OpenCode's integration,
+  Herdr skips screen detection and says so, and that idle is the real
+  answer. Radar now clears the held mark on it. Without the hook, or on a
+  Herdr that does not send the field, nothing changes.
+  [#64](https://github.com/hhdebb/herdr-radar/pull/64) by @giannisCKS.
+
+- **The README says how to update.** On Herdr 0.9.4 and later,
+  `herdr plugin update` installs the new version, while the running daemon
+  keeps the old one until Herdr restarts. Running `state-stop` and then
+  `state-start` switches to the new one without touching your panes.
+
 ## 1.4.8 — 2026-10-18
 
 - **The sidebar repaints in full after a live handoff.** A handoff
